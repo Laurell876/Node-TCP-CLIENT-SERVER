@@ -1,108 +1,132 @@
-const net = require('net');
-const server = net.createServer()
-const { startGame } = require('./utils/start-game');
-let {credentials} = require('./utils/data');
+const net = require("net");
+const server = net.createServer();
+let { credentials } = require("./utils/data");
 
 let numberOfUsersConnected = 0;
 let clients = [];
 const readline = require("readline-sync");
+const { SocketMessage } = require("../utils");
 
-
-const sendDataToAllClients = (msg) => {
-    clients.forEach((client) => {
-        client.write(JSON.stringify({
-            type: "Notification",
-            msg
-        }));
-    });
+const sendDataToAllClients = (messageToSend) => {
+  clients.forEach((client) => {
+    client.write(JSON.stringify(new SocketMessage(messageToSend.type, messageToSend.message, messageToSend.data)));
+  });
 };
 
 const addUser = () => {
-    numberOfUsersConnected++;
-    return numberOfUsersConnected;
-}
+  numberOfUsersConnected++;
+  return numberOfUsersConnected;
+};
 
 const getClients = () => {
-    return clients;
-}
+  return clients;
+};
 
 const setCredentials = (updatedCredentials) => {
-    credentials = updatedCredentials;
-}
+  credentials = updatedCredentials;
+};
 
+server.on("connection", (socket) => {
+  clients.push(socket);
 
+  socket.write(
+    JSON.stringify(
+      new SocketMessage("login", "", {
+        credentials,
+      })
+    )
+  );
 
-server.on('connection', (socket)=>{
-    clients.push(socket);
+  socket.on("data", (data) => {
+    const objectData = JSON.parse(data);
+    console.log(objectData);
 
-   // startGame(sendDataToAllClients, numberOfUsersConnected, addUser, getClients, socket);
-   socket.write(JSON.stringify({
-        type: "login",
-        data: {
-            credentials
-        }
-    }))
+    if (objectData && objectData.type) {
+      if (objectData.type === "update-credentials") {
+        setCredentials(objectData.data.credentials);
+      } else if (objectData.type === "attempt-login") {
+        attemptLogin(objectData, socket);
+      }
+    }
+  });
 
-    socket.on('data', (data)=>{
-        const objectData = JSON.parse(data);
-        console.log(objectData);
+  socket.on("close", () => {
+    console.log("Server connection closed");
+  });
 
-        if(objectData && objectData.type) {
-            if (objectData.type === "update-credentials") {
-                setCredentials(objectData.data.credentials);
-            } else if (objectData.type === "attempt-login") {
-                const authData = objectData.data;
-                const {username, password} = authData;
-                console.log(username)
-                console.log(password)
+  socket.on("error", (err) => {
+    console.log(err.message);
+  });
+});
 
-                const filterResult = credentials.filter(credentialSet => isValidCredentials(credentialSet, username, password))
+server.listen(7621, () => {
+  console.log("Server started on port: ", server.address().port);
+});
 
-                if(filterResult.length > 0) {
-                    const userFound = filterResult[0];
-                    const index = credentials.findIndex(credentialSet => isValidCredentials(credentialSet, username, password));
-                    credentials[index].alreadyLoggedIn = true;
+const attemptLogin = (objectData, socket) => {
+  const authData = objectData.data;
+  const { username, password } = authData;
+  console.log(username);
+  console.log(password);
 
-                    keepChecking = false;
-                    isAuthenticated = true;
-                    console.log("AUTHENTICATED")
-                } else {
-                    //console.log("Invalid credentials")
+  const filterResult = credentials.filter((credentialSet) =>
+    isValidCredentials(credentialSet, username, password)
+  );
 
-                    socket.write(JSON.stringify({
-                        type: "retry-login"
-                    }))
+  if (filterResult.length > 0) {
+    const userFound = filterResult[0];
+    const index = credentials.findIndex((credentialSet) =>
+      isValidCredentials(credentialSet, username, password)
+    );
+    credentials[index].alreadyLoggedIn = true;
 
-                    // const retry = readline.question('Would you like to try again? Answer yes or no: ')
-                    // if(retry.toLowerCase() === 'no') {
-                    //     // keepChecking = false;
-                    // }
-                    // else if(retry.toLowerCase() === 'yes') {
-                    //     socket.write(JSON.stringify({
-                    //         type: "retry-login"
-                    //     }))
-                    // }
+    keepChecking = false;
+    isAuthenticated = true;
 
+    // user is authenticated - start game if it has two players
 
-                }
-            }
-        }
-    })
+    console.log("number of clients: " + clients.length);
+    if (clients.length === 2) {
+      console.log("Find the Queen has started");
+      
+      sendDataToAllClients({
+        type: "notification",
+        message: "Find the Queen has started",
+        data: {},
+      });
 
-    socket.on('close', ()=>{
-        console.log('Server connection closed')
-    })
+      const clients = getClients();
+      const dealerIndex = Math.round(Math.random()); // will return 0 or 1
+      const spotterIndex = dealerIndex === 0 ? 1 : 0;
+      const dealer = clients[dealerIndex];
+      const spotter = clients[spotterIndex];
 
-    socket.on('error', (err)=>{
-        console.log(err.message)
-    })
-})
+      dealer.write(
+        JSON.stringify(
+          new SocketMessage("Notification", "You are the dealer!", {})
+        )
+      );
 
-server.listen(7621, ()=>{
-    console.log('Server started on port: ', server.address().port)
-})
+      // dealer.write(JSON.stringify({
+      //     type: "Prompt",
+      //     msg: "Please choose 1, 2 or 3."
+      // }));
 
+      spotter.write(
+        JSON.stringify(
+          new SocketMessage("Notification", "You are the spotter!", {})
+        )
+      );
+    }
+  } else {
+    socket.write(JSON.stringify(new SocketMessage("failed-login", "", {})));
+  }
+};
 
 const isValidCredentials = (credentialSet, username, password) => {
-    return credentialSet.username === username && credentialSet.password === password && credentialSet.alreadyLoggedIn === false
-}
+  return (
+    credentialSet.username === username &&
+    credentialSet.password === password &&
+    credentialSet.alreadyLoggedIn === false
+  );
+};

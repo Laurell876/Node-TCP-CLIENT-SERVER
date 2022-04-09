@@ -22,6 +22,7 @@ const startGame = (sendDataToAllClients, numberOfUsersConnected, addUser, getCli
             const spotterIndex = dealerIndex === 0 ? 1 : 0;
             const dealer = clients[dealerIndex];
             const spotter = clients[spotterIndex];
+            
             dealer.write(JSON.stringify({
                 type: "Notification",
                 msg: "You are the dealer!"
