@@ -16,7 +16,6 @@ client.on("connect", () => {
 client.on("data", (data) => {
   try {
     const objectData = JSON.parse(data.toString());
-    console.log(objectData)
 
     if (objectData && objectData.type) {
       if (objectData.type === "login") {
@@ -26,11 +25,49 @@ client.on("data", (data) => {
         attemptLogin();
       } else if (objectData.type === "notification") {
         console.log("Notification received: " + objectData.message);
+
+        if(objectData.message.toLowerCase() === 'the game has started! you are the dealer!') {
+          client.write(
+            JSON.stringify(
+              new SocketMessage("start-game", "", {})
+            )
+          );
+        }
+      } else if (objectData.type === "spot-value") {
+        const selectedValue = readline.question("Please enter 1,2 or 3: ");
+        client.write(
+          JSON.stringify(
+            new SocketMessage("spotter-choice-selected", "", {
+              selectedValue,
+            })
+          )
+        );
+      }
+      else if (objectData.type === 'login-successful') {
+        console.log("Login was successful!")
+
+        client.write(
+          JSON.stringify(
+            new SocketMessage("login-successful", "", {})
+          )
+        );
+      }
+      else if (objectData.type === "dealer-choose-value") {
+      //  console.log("You are the dealer")
+        const selectedValue = readline.question("Please enter 1,2 or 3: ");
+        client.write(
+          JSON.stringify(
+            new SocketMessage("value-selected", "", {
+              selectedValue,
+            })
+          )
+        );
       }
     }
   } catch (e) {
+    console.log(data.toString())
+    console.log("Error thrown while parsing data");
     console.log(e);
-    console.log("Error thrown while parsing data: " + JSON.stringify(e));
   }
 });
 

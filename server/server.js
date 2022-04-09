@@ -1,22 +1,36 @@
 const net = require("net");
 const server = net.createServer();
-let { credentials } = require("./utils/data");
-
-let numberOfUsersConnected = 0;
-let clients = [];
+let { credentials } = require("../utils/data");
 const readline = require("readline-sync");
 const { SocketMessage } = require("../utils");
 
+let numberOfUsersConnected = 0;
+let clients = [];
+let dealersChoice;
+let dealer;
+let spotter;
+let dealerScore = 0;
+let spotterScore = 0;
+let round = 1;
+
 const sendDataToAllClients = (messageToSend) => {
   clients.forEach((client) => {
-    client.write(JSON.stringify(new SocketMessage(messageToSend.type, messageToSend.message, messageToSend.data)));
+    client.write(
+      JSON.stringify(
+        new SocketMessage(
+          messageToSend.type,
+          messageToSend.message,
+          messageToSend.data
+        )
+      )
+    );
   });
 };
 
-const addUser = () => {
-  numberOfUsersConnected++;
-  return numberOfUsersConnected;
-};
+// const addUser = () => {
+//   numberOfUsersConnected++;
+//   return numberOfUsersConnected;
+// };
 
 const getClients = () => {
   return clients;
@@ -39,13 +53,103 @@ server.on("connection", (socket) => {
 
   socket.on("data", (data) => {
     const objectData = JSON.parse(data);
-    console.log(objectData);
-
     if (objectData && objectData.type) {
       if (objectData.type === "update-credentials") {
         setCredentials(objectData.data.credentials);
       } else if (objectData.type === "attempt-login") {
         attemptLogin(objectData, socket);
+      } else if (objectData.type === "value-selected") {
+        dealersChoice = objectData.data.selectedValue;
+        spotter.write(JSON.stringify(new SocketMessage("spot-value", "", {})));
+      } else if (objectData.type === "start-game") {
+        dealer.write(
+          JSON.stringify(
+            new SocketMessage("dealer-choose-value", "You are the dealer!", {})
+          )
+        );
+        spotter.write(
+          JSON.stringify(
+            new SocketMessage("Notification", "You are the spotter!", {})
+          )
+        );
+      } else if (objectData.type === "login-successful") {
+        if (clients.length === 2) {
+          const dealerIndex = Math.round(Math.random()); // will return 0 or 1
+          const spotterIndex = dealerIndex === 0 ? 1 : 0;
+          dealer = clients[dealerIndex];
+          spotter = clients[spotterIndex];
+
+          spotter.write(
+            JSON.stringify(
+              new SocketMessage(
+                "Notification",
+                "The game has started! You are the spotter!",
+                {}
+              )
+            )
+          );
+          dealer.write(
+            JSON.stringify(
+              new SocketMessage(
+                "Notification",
+                "The game has started! You are the dealer!",
+                {}
+              )
+            )
+          );
+          // sendDataToAllClients({
+          //   type: "notification",
+          //   message: "Find the Queen has started",
+          //   data: {
+          //     dealer
+          //   },
+          // });
+        }
+      } else if (objectData.type === "spotter-choice-selected") {
+        const spotterChoice = objectData.data.selectedValue;
+        if (round < 5) {
+          if (spotterChoice === dealersChoice) {
+            spotterScore++;
+          } else {
+            dealerScore++;
+          }
+          round++;
+
+          dealer.write(
+            JSON.stringify(
+              new SocketMessage(
+                "dealer-choose-value",
+                "You are the dealer!",
+                {}
+              )
+            )
+          );
+        } else {
+          if (spotterScore > dealerScore) {
+            spotter.write(
+              JSON.stringify(new SocketMessage("notification", "Victory", {}))
+            );
+            dealer.write(
+              JSON.stringify(new SocketMessage("notification", "Defeat", {}))
+            );
+          } else {
+            spotter.write(
+              JSON.stringify(new SocketMessage("notification", "Defeat", {}))
+            );
+            dealer.write(
+              JSON.stringify(new SocketMessage("notification", "Victory", {}))
+            );
+          }
+
+          sendDataToAllClients({
+            type: "notification",
+            message: "Thanks For Playing",
+            data: {},
+          });
+
+          // disconnect clients
+          clients.forEach((client) => client.destroy());
+        }
       }
     }
   });
@@ -66,58 +170,25 @@ server.listen(7621, () => {
 const attemptLogin = (objectData, socket) => {
   const authData = objectData.data;
   const { username, password } = authData;
-  console.log(username);
-  console.log(password);
 
   const filterResult = credentials.filter((credentialSet) =>
     isValidCredentials(credentialSet, username, password)
   );
 
   if (filterResult.length > 0) {
-    const userFound = filterResult[0];
+    // user is authenticated - start game if it has two players
+
+    socket.write(
+      JSON.stringify({
+        type: "login-successful",
+        message: "",
+        data: {},
+      })
+    );
     const index = credentials.findIndex((credentialSet) =>
       isValidCredentials(credentialSet, username, password)
     );
     credentials[index].alreadyLoggedIn = true;
-
-    keepChecking = false;
-    isAuthenticated = true;
-
-    // user is authenticated - start game if it has two players
-
-    console.log("number of clients: " + clients.length);
-    if (clients.length === 2) {
-      console.log("Find the Queen has started");
-      
-      sendDataToAllClients({
-        type: "notification",
-        message: "Find the Queen has started",
-        data: {},
-      });
-
-      const clients = getClients();
-      const dealerIndex = Math.round(Math.random()); // will return 0 or 1
-      const spotterIndex = dealerIndex === 0 ? 1 : 0;
-      const dealer = clients[dealerIndex];
-      const spotter = clients[spotterIndex];
-
-      dealer.write(
-        JSON.stringify(
-          new SocketMessage("Notification", "You are the dealer!", {})
-        )
-      );
-
-      // dealer.write(JSON.stringify({
-      //     type: "Prompt",
-      //     msg: "Please choose 1, 2 or 3."
-      // }));
-
-      spotter.write(
-        JSON.stringify(
-          new SocketMessage("Notification", "You are the spotter!", {})
-        )
-      );
-    }
   } else {
     socket.write(JSON.stringify(new SocketMessage("failed-login", "", {})));
   }
