@@ -1,6 +1,6 @@
 # How to run this program
 
-Ensure nodejs is installed on your device
+Ensure nodejs is installed on your device. This application was built using node version 14
 
 1. Run `npm install`   
 
