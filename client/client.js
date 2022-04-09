@@ -10,12 +10,12 @@ const client = net.createConnection(options)
 
 client.on('connect', ()=>{
     console.log('Connected to server')
-    sendLine()
+   // sendLine()
 })
 
 client.on('data', (data)=>{
     console.log('Data sent: ' + data)
-    sendLine()
+    //sendLine()
 })
 
 client.on('error', (err)=>{
