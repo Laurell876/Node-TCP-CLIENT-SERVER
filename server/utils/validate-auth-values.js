@@ -1,8 +1,11 @@
-const validateAuthValues = (objectData, socket) => {
+const { SocketMessage } = require("../../utils/socket-message");
+
+
+const validateAuthValues = (objectData, socket, getCredentials) => {
   const authData = objectData.data;
   const { username, password } = authData;
 
-  const filterResult = credentials.filter((credentialSet) =>
+  const filterResult = getCredentials().filter((credentialSet) =>
     isValidCredentials(credentialSet, username, password)
   );
 
@@ -16,10 +19,10 @@ const validateAuthValues = (objectData, socket) => {
         data: {},
       })
     );
-    const index = credentials.findIndex((credentialSet) =>
+    const index = getCredentials().findIndex((credentialSet) =>
       isValidCredentials(credentialSet, username, password)
     );
-    credentials[index].alreadyLoggedIn = true;
+    getCredentials()[index].alreadyLoggedIn = true;
   } else {
     socket.write(JSON.stringify(new SocketMessage("failed-login", "", {})));
   }

@@ -1,12 +1,14 @@
-require('dotenv').config();
+require("dotenv").config();
 
-console.log(process.env.USERNAME_1)
+console.log(process.env.USERNAME_1);
 
 const net = require("net");
 const server = net.createServer();
-const readline = require("readline-sync");
-const { setupCredentials } = require('../utils/setup-credentials');
+const { setupCredentials } = require("../utils/setup-credentials");
 const { SocketMessage } = require("../utils/socket-message");
+const { compareValuesEntered } = require("./utils/compare-values-entered");
+const { startGame } = require("./utils/start-game");
+const { validateAuthValues } = require("./utils/validate-auth-values");
 const credentials = setupCredentials();
 
 let clients = [];
@@ -31,18 +33,73 @@ const sendDataToAllClients = (messageToSend) => {
   });
 };
 
-const getClients = () => {
-  return clients;
-};
-
 const setCredentials = (updatedCredentials) => {
   credentials = updatedCredentials;
 };
 
-server.on("connection", (socket) => {
+const getCredentials = () => {
+  return credentials;
+};
 
+const getRound = () => {
+  return round;
+};
+
+const incrementSpotterScore = () => {
+  spotterScore++;
+};
+
+const incrementDealerScore = () => {
+  dealerScore++;
+};
+
+const incrementRound = () => {
+  round++;
+};
+
+const setDealer = (updatedDealer) => {
+  dealer = updatedDealer;
+};
+
+const getDealer = () => {
+  return dealer;
+};
+
+const setSpotter = (updatedSpotter) => {
+  spotter = updatedSpotter;
+};
+
+const getSpotter = () => {
+  return spotter;
+};
+
+const getClients = () => {
+  return clients;
+};
+
+const getDealerScore = () => {
+  return dealerScore;
+};
+
+const getSpotterScore = () => {
+  return spotterScore;
+};
+
+const getDealersChoice = () => {
+  return dealersChoice;
+}
+
+server.on("connection", (socket) => {
   if (clients.length === 2) {
-    socket.write(JSON.stringify(new SocketMessage("notification", "Only two players can play this game!", {})));
+    socket.write(
+      JSON.stringify(
+        new SocketMessage(
+          "notification",
+          "Only two players can play this game!",
+          {}
+        )
+      )
+    );
     socket.destroy();
   }
 
@@ -62,7 +119,7 @@ server.on("connection", (socket) => {
       if (objectData.type === "update-credentials") {
         setCredentials(objectData.data.credentials);
       } else if (objectData.type === "attempt-login") {
-        validateAuthValues(objectData, socket);
+        validateAuthValues(objectData, socket, getCredentials);
       } else if (objectData.type === "value-selected") {
         dealersChoice = objectData.data.selectedValue;
         spotter.write(JSON.stringify(new SocketMessage("spot-value", "", {})));
@@ -79,75 +136,24 @@ server.on("connection", (socket) => {
         );
       } else if (objectData.type === "login-successful") {
         if (clients.length === 2) {
-          const dealerIndex = Math.round(Math.random()); // will return 0 or 1
-          const spotterIndex = dealerIndex === 0 ? 1 : 0;
-          dealer = clients[dealerIndex];
-          spotter = clients[spotterIndex];
-
-          spotter.write(
-            JSON.stringify(
-              new SocketMessage(
-                "Notification",
-                "The game has started! You are the spotter!",
-                {}
-              )
-            )
-          );
-          dealer.write(
-            JSON.stringify(
-              new SocketMessage(
-                "Notification",
-                "The game has started! You are the dealer!",
-                {}
-              )
-            )
-          );
+          startGame(setDealer, setSpotter, getSpotter, getDealer, getClients);
         }
       } else if (objectData.type === "spotter-choice-selected") {
         const spotterChoice = objectData.data.selectedValue;
-        if (round < 5) {
-          if (spotterChoice === dealersChoice) {
-            spotterScore++;
-          } else {
-            dealerScore++;
-          }
-          round++;
-
-          dealer.write(
-            JSON.stringify(
-              new SocketMessage(
-                "dealer-choose-value",
-                "You are the dealer!",
-                {}
-              )
-            )
-          );
-        } else {
-          if (spotterScore > dealerScore) {
-            spotter.write(
-              JSON.stringify(new SocketMessage("notification", "Victory", {}))
-            );
-            dealer.write(
-              JSON.stringify(new SocketMessage("notification", "Defeat", {}))
-            );
-          } else {
-            spotter.write(
-              JSON.stringify(new SocketMessage("notification", "Defeat", {}))
-            );
-            dealer.write(
-              JSON.stringify(new SocketMessage("notification", "Victory", {}))
-            );
-          }
-
-          sendDataToAllClients({
-            type: "notification",
-            message: "Thanks For Playing",
-            data: {},
-          });
-
-          // disconnect clients
-          clients.forEach((client) => client.destroy());
-        }
+        compareValuesEntered(
+          getRound,
+          incrementSpotterScore,
+          incrementDealerScore,
+          incrementRound,
+          getDealersChoice,
+          spotterChoice,
+          getDealer,
+          getSpotter,
+          getClients,
+          getSpotterScore,
+          getDealerScore,
+          sendDataToAllClients
+        );
       }
     }
   });

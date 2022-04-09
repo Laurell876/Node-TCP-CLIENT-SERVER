@@ -20,10 +20,10 @@ client.on("data", (data) => {
 
     if (objectData && objectData.type) {
       if (objectData.type === "login") {
-        attemptLogin();
+        attemptLogin(client);
       } else if (objectData.type === "failed-login") {
         console.log("Invalid credentials");
-        attemptLogin();
+        attemptLogin(client);
       } else if (objectData.type === "notification") {
         console.log("Notification received: " + objectData.message);
 
