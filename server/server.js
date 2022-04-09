@@ -1,10 +1,14 @@
+require('dotenv').config();
+
+console.log(process.env.USERNAME_1)
+
 const net = require("net");
 const server = net.createServer();
-let { credentials } = require("../utils/data");
 const readline = require("readline-sync");
-const { SocketMessage } = require("../utils");
+const { setupCredentials } = require('../utils/setup-credentials');
+const { SocketMessage } = require("../utils/socket-message");
+const credentials = setupCredentials();
 
-let numberOfUsersConnected = 0;
 let clients = [];
 let dealersChoice;
 let dealer;
@@ -27,11 +31,6 @@ const sendDataToAllClients = (messageToSend) => {
   });
 };
 
-// const addUser = () => {
-//   numberOfUsersConnected++;
-//   return numberOfUsersConnected;
-// };
-
 const getClients = () => {
   return clients;
 };
@@ -41,6 +40,12 @@ const setCredentials = (updatedCredentials) => {
 };
 
 server.on("connection", (socket) => {
+
+  if (clients.length === 2) {
+    socket.write(JSON.stringify(new SocketMessage("notification", "Only two players can play this game!", {})));
+    socket.destroy();
+  }
+
   clients.push(socket);
 
   socket.write(
@@ -97,13 +102,6 @@ server.on("connection", (socket) => {
               )
             )
           );
-          // sendDataToAllClients({
-          //   type: "notification",
-          //   message: "Find the Queen has started",
-          //   data: {
-          //     dealer
-          //   },
-          // });
         }
       } else if (objectData.type === "spotter-choice-selected") {
         const spotterChoice = objectData.data.selectedValue;

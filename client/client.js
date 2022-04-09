@@ -1,6 +1,6 @@
 const net = require("net");
 const readline = require("readline-sync");
-const { SocketMessage } = require("../utils");
+const { SocketMessage } = require("../utils/socket-message");
 
 const options = {
   port: 7621,
