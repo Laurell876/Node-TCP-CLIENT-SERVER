@@ -1,8 +1,7 @@
 const net = require('net');
 
 const server = net.createServer()
-const { authenticateUser } = require("./utils");
-let {credentials} = require('../utils/data')
+const { startGame } = require('../utils/start-game');
 
 let numberOfUsersConnected = 0;
 let clients = [];
@@ -14,25 +13,15 @@ const sendDataToAllClients = (msg) => {
     });
 };
 
+const addUser = () => {
+    numberOfUsersConnected++;
+    return numberOfUsersConnected;
+}
+
 server.on('connection', (socket)=>{
     clients.push(socket);
 
-    const authenticationData = authenticateUser(credentials);
-
-    const {isAuthenticated, updatedCredentials} = authenticationData;
-    credentials = updatedCredentials;
-
-    if (isAuthenticated) {
-        console.log("Logged In!")
-        numberOfUsersConnected++;
-
-        if (numberOfUsersConnected === 2) {
-            console.log("The game has started")
-            sendDataToAllClients("The game has started")
-        }
-    } else {
-        console.log("Authentication failed!")
-    }
+    startGame(sendDataToAllClients, numberOfUsersConnected, addUser);
 
     socket.on('data', (data)=>{
         socket.write('Received!')
