@@ -17,7 +17,7 @@ let dealer;
 let spotter;
 let dealerScore = 0;
 let spotterScore = 0;
-let round = 1;
+let round = 0;
 
 const sendDataToAllClients = (messageToSend) => {
   clients.forEach((client) => {
