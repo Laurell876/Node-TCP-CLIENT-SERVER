@@ -2,7 +2,6 @@
 
 Ensure nodejs is installed on your device
 
-
 1. Run `npm install`   
 
 2. Create a `.env` file and copy the contents from the `.env.example` file. Enter the values for the different env variables   

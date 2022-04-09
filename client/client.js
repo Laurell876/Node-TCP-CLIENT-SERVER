@@ -1,6 +1,7 @@
 const net = require("net");
 const readline = require("readline-sync");
 const { SocketMessage } = require("../utils/socket-message");
+const { attemptLogin } = require("./utils/attempt-login");
 
 const options = {
   port: 7621,
@@ -74,16 +75,3 @@ client.on("data", (data) => {
 client.on("error", (err) => {
   console.log(err.message);
 });
-
-const attemptLogin = () => {
-  const username = readline.question("Please enter a username: ");
-  const password = readline.question("Please enter the password: ");
-  client.write(
-    JSON.stringify(
-      new SocketMessage("attempt-login", "", {
-        username,
-        password,
-      })
-    )
-  );
-};
